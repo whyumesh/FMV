@@ -1,127 +1,107 @@
-Sub ExportDoctorDataToExcel_Final()
+Sub ExportDoctorDataToExcel()
     Dim olApp As Outlook.Application
     Dim olNamespace As Outlook.NameSpace
     Dim olFolder As Outlook.MAPIFolder
     Dim olMail As Object
     Dim xlApp As Object, xlWB As Object, xlSheet As Object
-    Dim i As Long, bodyText As String, subjectText As String
+    Dim i As Long
+    Dim RegExp As Object, Matches As Object
+    Dim bodyText As String, subjectText As String
+    Dim lines() As String, Line As Variant
+    Dim ticketNo As String
+    Dim currentName As String, currentCode As String, currentEmail As String
     
-    Dim RegExp As Object, Matches As Object, M As Object
-    Dim ticketNo As String, doctorName As String, doctorEmail As String, doctorCode As String
-    
-    ' Initialize Outlook
+    ' Outlook objects
     Set olApp = Outlook.Application
     Set olNamespace = olApp.GetNamespace("MAPI")
+    ' ⚠️ Change folder path as needed
     Set olFolder = olNamespace.Folders("umesh.pawar@abbott.com").Folders("Archive").Folders("Complete")
     
-    ' Initialize Excel
+    ' Excel objects
     Set xlApp = CreateObject("Excel.Application")
     xlApp.Visible = True
     Set xlWB = xlApp.Workbooks.Add
     Set xlSheet = xlWB.Sheets(1)
     
     ' Headers
-    xlSheet.Cells(1, 1).Value = "Ticket Number"
+    xlSheet.Cells(1, 1).Value = "Ticket No"
     xlSheet.Cells(1, 2).Value = "Doctor Name"
     xlSheet.Cells(1, 3).Value = "DVL Code"
     xlSheet.Cells(1, 4).Value = "Doctor Email"
     
     i = 2
     
-    ' Loop through emails
+    ' RegExp
+    Set RegExp = CreateObject("VBScript.RegExp")
+    RegExp.IgnoreCase = True
+    
+    ' Loop mails
     For Each olMail In olFolder.Items
         If TypeOf olMail Is Outlook.MailItem Then
             bodyText = olMail.Body
             subjectText = olMail.Subject
             
-            ' === Ticket Number from Subject ===
+            ' Extract Ticket No (pattern "CHMP" + digits)
             ticketNo = ""
-            Set RegExp = CreateObject("VBScript.RegExp")
-            With RegExp
-                .Pattern = "CHMP\d+"
-                .IgnoreCase = True
-            End With
+            RegExp.Pattern = "(CHMP\d+)"
             If RegExp.Test(subjectText) Then
-                ticketNo = RegExp.Execute(subjectText)(0).Value
+                Set Matches = RegExp.Execute(subjectText)
+                ticketNo = Matches(0)
             End If
             
-            ' === Doctor Emails ===
-            Dim emails As Collection: Set emails = New Collection
-            Set RegExp = CreateObject("VBScript.RegExp")
-            With RegExp
-                .Pattern = "\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"
-                .IgnoreCase = True
-                .Global = True
-            End With
-            If RegExp.Test(bodyText) Then
-                Set Matches = RegExp.Execute(bodyText)
-                For Each M In Matches
-                    If InStr(1, M.Value, "@abbott.com", vbTextCompare) = 0 Then
-                        On Error Resume Next
-                        emails.Add M.Value, M.Value  ' avoid duplicates
-                        On Error GoTo 0
+            ' Split body lines
+            lines = Split(bodyText, vbCrLf)
+            
+            currentName = ""
+            currentCode = ""
+            currentEmail = ""
+            
+            For Each Line In lines
+                Line = Trim(Line)
+                If Line = "" Then GoTo SkipLine
+                
+                ' Find doctor email (ignore abbott emails)
+                If currentEmail = "" Then
+                    RegExp.Pattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                    If RegExp.Test(Line) Then
+                        Set Matches = RegExp.Execute(Line)
+                        If InStr(Matches(0), "@abbott.com") = 0 Then
+                            currentEmail = Matches(0)
+                        End If
                     End If
-                Next
-            End If
-            
-            ' === DVL Codes ===
-            Dim codes As Collection: Set codes = New Collection
-            With RegExp
-                .Pattern = "\b(?:DVL|DS|GJ)[-A-Z0-9]+\b"
-                .IgnoreCase = True
-                .Global = True
-            End With
-            If RegExp.Test(bodyText) Then
-                Set Matches = RegExp.Execute(bodyText)
-                For Each M In Matches
-                    On Error Resume Next
-                    codes.Add M.Value, M.Value
-                    On Error GoTo 0
-                Next
-            End If
-            
-            ' === Doctor Names ===
-            Dim names As Collection: Set names = New Collection
-            With RegExp
-                .Pattern = "\bDr\.?\s+[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*"
-                .IgnoreCase = True
-                .Global = True
-            End With
-            If RegExp.Test(bodyText) Then
-                Set Matches = RegExp.Execute(bodyText)
-                For Each M In Matches
-                    On Error Resume Next
-                    names.Add M.Value, M.Value
-                    On Error GoTo 0
-                Next
-            End If
-            
-            ' === Fallbacks ===
-            If names.Count = 0 Then names.Add olMail.SenderName
-            If emails.Count = 0 Then emails.Add ""
-            If codes.Count = 0 Then codes.Add ""
-            
-            ' === Align and Write (Row per doctor) ===
-            Dim maxCount As Long
-            maxCount = Application.WorksheetFunction.Max(names.Count, emails.Count, codes.Count)
-            
-            Dim idx As Long
-            For idx = 1 To maxCount
-                doctorName = ""
-                doctorEmail = ""
-                doctorCode = ""
+                End If
                 
-                If idx <= names.Count Then doctorName = names(idx)
-                If idx <= emails.Count Then doctorEmail = emails(idx)
-                If idx <= codes.Count Then doctorCode = codes(idx)
+                ' Find DVL code
+                If currentCode = "" Then
+                    RegExp.Pattern = "\b(DS|DVL|ORC|GJ)[-\w]+\b"
+                    If RegExp.Test(Line) Then
+                        Set Matches = RegExp.Execute(Line)
+                        currentCode = Matches(0)
+                    End If
+                End If
                 
-                xlSheet.Cells(i, 1).Value = ticketNo
-                xlSheet.Cells(i, 2).Value = Trim(doctorName)
-                xlSheet.Cells(i, 3).Value = Trim(doctorCode)
-                xlSheet.Cells(i, 4).Value = Trim(doctorEmail)
-                i = i + 1
-            Next idx
-            
+                ' Find doctor name
+                If currentName = "" And (InStr(1, Line, "Dr", vbTextCompare) > 0) Then
+                    ' Capture line as doctor name
+                    currentName = Line
+                End If
+                
+                ' If all 3 found, write row
+                If currentName <> "" And currentCode <> "" And currentEmail <> "" Then
+                    xlSheet.Cells(i, 1).Value = ticketNo
+                    xlSheet.Cells(i, 2).Value = currentName
+                    xlSheet.Cells(i, 3).Value = currentCode
+                    xlSheet.Cells(i, 4).Value = currentEmail
+                    i = i + 1
+                    
+                    ' Reset for next doctor
+                    currentName = ""
+                    currentCode = ""
+                    currentEmail = ""
+                End If
+                
+SkipLine:
+            Next Line
         End If
     Next olMail
     
