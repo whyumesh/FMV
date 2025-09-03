@@ -1,0 +1,104 @@
+Sub ExportDoctorDataToExcel()
+    Dim olApp As Outlook.Application
+    Dim olNamespace As Outlook.NameSpace
+    Dim olFolder As Outlook.MAPIFolder
+    Dim olMail As Object
+    Dim xlApp As Object
+    Dim xlWB As Object
+    Dim xlSheet As Object
+    Dim i As Long
+    Dim RegExp As Object
+    Dim Matches As Object
+
+    ' Initialize Outlook
+    Set olApp = Outlook.Application
+    Set olNamespace = olApp.GetNamespace("MAPI")
+    Set olFolder = olNamespace.Folders("umesh.pawar@abbott.com").Folders("Archive").Folders("Complete")
+
+    ' Initialize Excel
+    Set xlApp = CreateObject("Excel.Application")
+    xlApp.Visible = True
+    Set xlWB = xlApp.Workbooks.Add
+    Set xlSheet = xlWB.Sheets(1)
+
+    ' Set headers
+    xlSheet.Cells(1, 1).Value = "Doctor Name"
+    xlSheet.Cells(1, 2).Value = "DVL Code"
+    xlSheet.Cells(1, 3).Value = "Email"
+
+    i = 2 ' Start from row 2
+
+    ' Create RegExp object
+    Set RegExp = CreateObject("VBScript.RegExp")
+    RegExp.Global = True
+    RegExp.IgnoreCase = True
+
+    ' Loop through emails
+    For Each olMail In olFolder.Items
+        If TypeOf olMail Is Outlook.MailItem Then
+            Dim bodyText As String
+            bodyText = olMail.Body
+
+            Dim lines() As String
+            lines = Split(bodyText, vbCrLf)
+
+            Dim doctorName As String
+            Dim doctorCode As String
+            Dim doctorEmail As String
+
+            doctorName = ""
+            doctorCode = ""
+            doctorEmail = ""
+
+            For Each Line In lines
+                Line = Trim(Line)
+
+                ' Skip internal or irrelevant lines
+                If Line = "" Or InStr(Line, "@abbott.com") > 0 Or InStr(Line, "From:") > 0 Or InStr(Line, "Subject:") > 0 Or InStr(Line, "Regards") > 0 Then GoTo SkipLine
+
+                ' Match Doctor Email
+                If doctorEmail = "" Then
+                    RegExp.Pattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                    If RegExp.Test(Line) Then
+                        Set Matches = RegExp.Execute(Line)
+                        If InStr(Matches(0), "@abbott.com") = 0 Then
+                            doctorEmail = Matches(0)
+                        End If
+                    End If
+                End If
+
+                ' Match DVL Code
+                If doctorCode = "" Then
+                    RegExp.Pattern = "(DS|GJ|DVL)[-\w]+"
+                    If RegExp.Test(Line) Then
+                        Set Matches = RegExp.Execute(Line)
+                        doctorCode = Matches(0)
+                    End If
+                End If
+
+                ' Match Doctor Name
+                If doctorName = "" And (InStr(Line, "Dr.") > 0 Or InStr(Line, "Dr ") > 0 Or InStr(Line, "Doctor Name") > 0) Then
+                    doctorName = Line
+                End If
+
+                ' If all 3 found, write to Excel
+                If doctorName <> "" And doctorCode <> "" And doctorEmail <> "" Then
+                    xlSheet.Cells(i, 1).Value = doctorName
+                    xlSheet.Cells(i, 2).Value = doctorCode
+                    xlSheet.Cells(i, 3).Value = doctorEmail
+                    i = i + 1
+
+                    ' Reset for next possible doctor in same email
+                    doctorName = ""
+                    doctorCode = ""
+                    doctorEmail = ""
+                End If
+
+SkipLine:
+            Next Line
+        End If
+    Next olMail
+
+    MsgBox "Doctor data export complete!", vbInformation
+End Sub
+
