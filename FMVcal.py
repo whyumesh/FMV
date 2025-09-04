@@ -19,11 +19,12 @@ column_mapping = {
     "Clinical Experience: i.e. Time Spent with Patients?": "Clinical Experience",
     "Leadership position(s) in a Professional or Scientific Society and/or leadership position(s) in Hospital or other Patient Care Settings (e.g. Department Head or Chief, Medical Director, Lab Direct...": "Leadership position in scientific Society / Hospital / Patient care",
     "Geographic influence as a Key Opinion Leader.": "Geographical Reach",
-    "Highest Academic Position Held in past 10 years": "Highest Academic position",
+    "Highest Academic Position Held in past 10 years": "Highest Academic position ",
     "Additional Educational Level": "Additional Educational Level",
     "Research Experience (e.g., industry-sponsored research, investigator-initiated research, other research) in past 10 years": "Research Experience",
     "Publication experience in the past 10 years": "Publication Experience",
-    "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years.": "Speaking Experience"
+    "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years.": "Speaking Experience",
+    "Years of experience in the Specialty / Super Specialty?": "Years of Experience "
 }
 
 # Prepare list to collect matched rows
@@ -36,10 +37,10 @@ for _, row in doctor_df.iterrows():
 
     if not match.empty:
         matched_data = {
-            "Doctor Name": row.get("Doctor Name", ""),
+            "HCP Name": row.get("HCP Name", ""),
             "DVL Code": row.get("DVL Code", ""),
             "Email": email,
-            "Years of Experience": None  # Placeholder if not available
+            "Years of Experience ": None  # Placeholder if not available
         }
         for cv_col, fmv_col in column_mapping.items():
             matched_data[fmv_col] = match.iloc[0].get(cv_col, None)
@@ -50,10 +51,10 @@ matched_df = pd.DataFrame(matched_rows)
 
 # Ensure all required columns exist
 final_columns = [
-    "Doctor Name", "DVL Code", "Email",
-    "Years of Experience", "Clinical Experience",
+    "HCP Name", "DVL Code", "Email",
+    "Years of Experience ", "Clinical Experience",
     "Leadership position in scientific Society / Hospital / Patient care",
-    "Geographical Reach", "Highest Academic position",
+    "Geographical Reach", "Highest Academic position ",
     "Additional Educational Level", "Research Experience",
     "Publication Experience", "Speaking Experience"
 ]
