@@ -14,6 +14,10 @@ doctor_df = pd.read_excel(doctor_data_path)
 cvdump_df = pd.read_excel(cvdump_path)
 fmv_df = pd.read_excel(fmv_calc_path)
 
+# Clean emails (strip spaces, lowercase)
+doctor_df["Email"] = doctor_df["Email"].astype(str).str.strip().str.lower()
+cvdump_df["HCP Email"] = cvdump_df["HCP Email"].astype(str).str.strip().str.lower()
+
 # Mapping from CVdump column names to FMV_Calculator column names
 column_mapping = {
     "Clinical Experience: i.e. Time Spent with Patients?": "Clinical Experience",
@@ -24,32 +28,22 @@ column_mapping = {
     "Research Experience (e.g., industry-sponsored research, investigator-initiated research, other research) in past 10 years": "Research Experience",
     "Publication experience in the past 10 years": "Publication Experience",
     "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years.": "Speaking Experience",
-    "Years of experience in the Specialty / Super Specialty?": "Years of Experience "
+    "Years of experience in the Specialty / Super Specialty?": "Years of Experience "
 }
 
-# Prepare list to collect matched rows
-matched_rows = []
+# Rename CVdump columns according to mapping
+cvdump_renamed = cvdump_df.rename(columns=column_mapping)
 
-# Iterate over each email in doctor_df
-for _, row in doctor_df.iterrows():
-    email = str(row["Email"]).strip().lower()
-    match = cvdump_df[cvdump_df["HCP Email"].astype(str).str.strip().str.lower() == email]
+# Merge doctor_df with cvdump_df on email
+merged_df = pd.merge(
+    doctor_df,
+    cvdump_renamed,
+    how="left",
+    left_on="Email",
+    right_on="HCP Email"
+)
 
-    if not match.empty:
-        matched_data = {
-            "HCP Name": row.get("HCP Name", ""),
-            "DVL Code": row.get("DVL Code", ""),
-            "Email": email,
-            "Years of Experience ": None  # Placeholder if not available
-        }
-        for cv_col, fmv_col in column_mapping.items():
-            matched_data[fmv_col] = match.iloc[0].get(cv_col, None)
-        matched_rows.append(matched_data)
-
-# Convert matched rows to DataFrame
-matched_df = pd.DataFrame(matched_rows)
-
-# Ensure all required columns exist
+# Build final dataframe
 final_columns = [
     "HCP Name", "DVL Code", "Email",
     "Years of Experience ", "Clinical Experience",
@@ -59,12 +53,16 @@ final_columns = [
     "Publication Experience", "Speaking Experience"
 ]
 
+# Ensure missing columns exist
 for col in final_columns:
-    if col not in matched_df.columns:
-        matched_df[col] = None
+    if col not in merged_df.columns:
+        merged_df[col] = None
 
-# Reorder columns
-matched_df = matched_df[final_columns]
+# Select only final columns
+matched_df = merged_df[final_columns].copy()
+
+# Optional: drop duplicates if multiple matches
+matched_df = matched_df.drop_duplicates()
 
 # Append to existing FMV data
 updated_fmv_df = pd.concat([fmv_df, matched_df], ignore_index=True)
