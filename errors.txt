@@ -1,4 +1,9 @@
- "Start time", "HCP Email",
+
+now i have updated the DVL file with only 2 columns "Customer Code", "Account: Email" and removed all the duplicates.
+
+below is the list of columns need to be used.
+
+    "Start time", "HCP Email",
     "Clinical Experience: i.e. Time Spent with Patients?",
     "Leadership position(s) in a Professional or Scientific Society and/or leadership position(s) in Hospital or other Patient Care Settings (e.g. Department Head or Chief, Medical Director, Lab Direct...",
     "Geographic influence as a Key Opinion Leader.",
@@ -9,4 +14,9 @@
     "Research Experience (e.g., industry-sponsored research, investigator-initiated research, other research) in past 10 years",
     "Publication experience in the past 10 years",
     "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years."
-]
+
+first take one email from "Account: Email" search it in "HCP Email" if found copy the corresponding information from the above given columns. and insert them into the 
+FMV_Calculator file. you have the file so insert the values at appropriate place. if the email is not found in "HCP Email" create a new file of it. be prepared for every scenario.
+there might be multiple entries with same email in "HCP Email", at that time see the date & time in "Start time" column and use the latest entry it is in m/d/yyyy h:mm format.
+
+NOTE :- THERE IS NO SCOPE OF ERROR.
