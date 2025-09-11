@@ -1,4 +1,3 @@
-
 now i have updated the DVL file with only 2 columns "Customer Code", "Account: Email" and removed all the duplicates.
 
 below is the list of columns need to be used.
@@ -18,5 +17,7 @@ below is the list of columns need to be used.
 first take one email from "Account: Email" search it in "HCP Email" if found copy the corresponding information from the above given columns. and insert them into the 
 FMV_Calculator file. you have the file so insert the values at appropriate place. if the email is not found in "HCP Email" create a new file of it. be prepared for every scenario.
 there might be multiple entries with same email in "HCP Email", at that time see the date & time in "Start time" column and use the latest entry it is in m/d/yyyy h:mm format.
+the main goal is to not manually insert Dr values in FMV_Calculator to calculate their Tier and score. so don't touch the score and tier columns i have added VLOOKUP to those columns cells 
+so as any Dr. details are added automatically their score and tier is calculated.
 
 NOTE :- THERE IS NO SCOPE OF ERROR.
