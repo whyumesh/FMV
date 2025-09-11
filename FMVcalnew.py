@@ -1,14 +1,15 @@
 import pandas as pd
+from datetime import datetime
 import os
 
-# ========== CONFIG ==========
-folder_path = r"C:\Users\PAWARUX1\Desktop\FMV Automation"
-fmv_file = os.path.join(folder_path, "FMV_Calculator.csv")
-cvdump_file = os.path.join(folder_path, "CVdump.csv")
-dvl_file = os.path.join(folder_path, "DVL.csv")
-missing_log_file = os.path.join(folder_path, "Missing_Doctors.csv")
+# -------- File Paths --------
+base_path = r"C:\Users\PAWARUX1\Desktop\FMV Automation"
+fmv_file = os.path.join(base_path, "FMV_Calculator.csv")
+cvdump_file = os.path.join(base_path, "CVdump.csv")
+dvl_file = os.path.join(base_path, "DVL.csv")
+missing_file = os.path.join(base_path, "Missing_Doctors.csv")
 
-# Required columns
+# -------- Columns of interest --------
 cvdump_cols = [
     "Start time", "HCP Email",
     "Clinical Experience: i.e. Time Spent with Patients?",
@@ -22,54 +23,60 @@ cvdump_cols = [
     "Publication experience in the past 10 years",
     "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years."
 ]
-dvl_cols = ["Customer Code", "Account: Email", "Tier Type", "Account: Account Name"]
 
-# ========== LOAD FILES ==========
-print("📂 Loading CSV files...")
-fmv = pd.read_csv(fmv_file, dtype=str).fillna("")
-cvdump = pd.read_csv(cvdump_file, dtype=str, usecols=lambda x: x in cvdump_cols).fillna("")
-dvl = pd.read_csv(dvl_file, dtype=str, usecols=lambda x: x in dvl_cols).fillna("")
+# -------- Load files --------
+print("📂 Loading files...")
+fmv = pd.read_csv(fmv_file, dtype=str)
+cvdump = pd.read_csv(cvdump_file, dtype=str, usecols=lambda x: x in cvdump_cols)
+dvl = pd.read_csv(dvl_file, dtype=str)
 
-# Normalize emails
-for df, col in [(cvdump, "HCP Email"), (dvl, "Account: Email"), (fmv, "HCP Email")]:
-    if col in df.columns:
-        df[col] = df[col].str.strip().str.lower()
+# Ensure consistent column names
+fmv.columns = fmv.columns.str.strip()
+cvdump.columns = cvdump.columns.str.strip()
+dvl.columns = dvl.columns.str.strip()
 
-# Deduplicate
-cvdump = cvdump.drop_duplicates(subset=["HCP Email"], keep="first")
-dvl = dvl.drop_duplicates(subset=["Account: Email"], keep="first")
+# -------- Process Start time --------
+cvdump["Start time"] = pd.to_datetime(cvdump["Start time"], errors="coerce")
 
-# Merge DVL + CVdump on email
-merged = pd.merge(dvl, cvdump, left_on="Account: Email", right_on="HCP Email", how="inner")
-merged["DVL Code"] = merged["Customer Code"]
+# Keep only latest entry per HCP Email
+cvdump = cvdump.sort_values("Start time").drop_duplicates("HCP Email", keep="last")
 
-# Ensure FMV has all required columns
-for col in list(cvdump_cols) + ["DVL Code"]:
-    if col not in fmv.columns:
-        fmv[col] = ""
+# -------- Matching --------
+missing_emails = []
+new_rows = []
 
-# Prepare rows in FMV format
-cols_to_add = ["DVL Code"] + [c for c in cvdump_cols if c in merged.columns]
-new_rows = merged[cols_to_add]
+for _, row in dvl.iterrows():
+    email = row["Account: Email"]
+    dvl_code = row["Customer Code"]
 
-# Deduplication check (skip already present doctors)
-if "DVL Code" in fmv.columns:
-    new_rows = new_rows[~new_rows["DVL Code"].isin(fmv["DVL Code"])]
-if "HCP Email" in fmv.columns and "HCP Email" in new_rows.columns:
-    new_rows = new_rows[~new_rows["HCP Email"].isin(fmv["HCP Email"])]
+    match = cvdump[cvdump["HCP Email"].str.lower() == str(email).lower()]
 
-# Append into FMV
-before = len(fmv)
-fmv = pd.concat([fmv, new_rows], ignore_index=True)
-added = len(fmv) - before
+    if match.empty:
+        missing_emails.append({"Account: Email": email, "Customer Code": dvl_code})
+        continue
 
-# Save back into SAME FMV file
-fmv.to_csv(fmv_file, index=False)
+    match = match.iloc[0]  # latest entry
 
-# Track missing doctors (present in DVL but not in CVdump)
-missing = dvl[~dvl["Account: Email"].isin(cvdump["HCP Email"])]
-if not missing.empty:
-    missing.to_csv(missing_log_file, index=False)
-    print(f"⚠️ Missing doctors logged: {len(missing)} (saved to {missing_log_file})")
+    # Build new FMV row
+    new_entry = {col: "" for col in fmv.columns}  # blank row with same headers
+    for col in cvdump_cols:
+        if col in fmv.columns:
+            new_entry[col] = match[col]
+    new_entry["HCP Email"] = email
+    new_entry["DVL Code"] = dvl_code
 
-print(f"✅ FMV_Calculator updated successfully. Added {added} new rows.")
+    # Append only if not already in FMV_Calculator
+    if not (fmv["HCP Email"].str.lower() == email.lower()).any():
+        new_rows.append(new_entry)
+
+# -------- Append and Save --------
+if new_rows:
+    fmv = pd.concat([fmv, pd.DataFrame(new_rows)], ignore_index=True)
+
+fmv.to_csv(fmv_file, index=False, encoding="utf-8-sig")
+
+if missing_emails:
+    pd.DataFrame(missing_emails).to_csv(missing_file, index=False, encoding="utf-8-sig")
+
+print(f"✅ FMV_Calculator updated. Added {len(new_rows)} new rows.")
+print(f"🚨 Missing doctors saved to {missing_file} ({len(missing_emails)} emails).")
