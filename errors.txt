@@ -1,0 +1,177 @@
+C:\Users\PAWARUX1\Desktop\FMV Automation>python FMVcal.py
+📂 Loading Excel files...
+Traceback (most recent call last):
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 301, in read
+    apply_stylesheet(self.archive, self.wb)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\stylesheet.py", line 209, in apply_stylesheet
+    stylesheet = Stylesheet.from_tree(node)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\stylesheet.py", line 105, in from_tree
+    return super().from_tree(node)
+           ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\serialisable.py", line 83, in from_tree
+    obj = desc.from_tree(el)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\sequence.py", line 94, in from_tree
+    return [self.expected_type.from_tree(el) for el in node]
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\fonts.py", line 109, in from_tree
+    return super().from_tree(node)
+           ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\serialisable.py", line 103, in from_tree
+    return cls(**attrib)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\fonts.py", line 75, in __init__
+    self.family = family
+    ^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\nested.py", line 33, in __set__
+    super().__set__(instance, value)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\base.py", line 112, in __set__
+    super().__set__(instance, value)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\base.py", line 91, in __set__
+    raise ValueError('Max value is {0}'.format(self.max))
+ValueError: Max value is 14
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PAWARUX1\Desktop\FMV Automation\FMVcal.py", line 17, in safe_read_excel
+    return pd.read_excel(file, dtype=str, engine="openpyxl", **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 495, in read_excel
+    io = ExcelFile(
+        io,
+    ...<2 lines>...
+        engine_kwargs=engine_kwargs,
+    )
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 1567, in __init__
+    self._reader = self._engines[engine](
+                   ~~~~~~~~~~~~~~~~~~~~~^
+        self._io,
+        ^^^^^^^^^
+        storage_options=storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        engine_kwargs=engine_kwargs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_openpyxl.py", line 553, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        filepath_or_buffer,
+        ^^^^^^^^^^^^^^^^^^^
+        storage_options=storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        engine_kwargs=engine_kwargs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 573, in __init__
+    self.book = self.load_workbook(self.handles.handle, engine_kwargs)
+                ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_openpyxl.py", line 572, in load_workbook
+    return load_workbook(
+        filepath_or_buffer,
+        **(default_kwargs | engine_kwargs),
+    )
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 348, in load_workbook
+    reader.read()
+    ~~~~~~~~~~~^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 309, in read
+    raise ValueError(
+    ...<3 lines>...
+        ) from e
+ValueError: Unable to read workbook: could not read stylesheet from C:\Users\PAWARUX1\Desktop\FMV Automation\FMV_Calculator.xlsx.
+This is most probably because the workbook source files contain some invalid XML.
+Please see the exception for more details.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 301, in read
+    apply_stylesheet(self.archive, self.wb)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\stylesheet.py", line 209, in apply_stylesheet
+    stylesheet = Stylesheet.from_tree(node)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\stylesheet.py", line 105, in from_tree
+    return super().from_tree(node)
+           ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\serialisable.py", line 83, in from_tree
+    obj = desc.from_tree(el)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\sequence.py", line 94, in from_tree
+    return [self.expected_type.from_tree(el) for el in node]
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\fonts.py", line 109, in from_tree
+    return super().from_tree(node)
+           ~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\serialisable.py", line 103, in from_tree
+    return cls(**attrib)
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\styles\fonts.py", line 75, in __init__
+    self.family = family
+    ^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\nested.py", line 33, in __set__
+    super().__set__(instance, value)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\base.py", line 112, in __set__
+    super().__set__(instance, value)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\descriptors\base.py", line 91, in __set__
+    raise ValueError('Max value is {0}'.format(self.max))
+ValueError: Max value is 14
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PAWARUX1\Desktop\FMV Automation\FMVcal.py", line 39, in <module>
+    fmv = safe_read_excel(fmv_file)
+  File "C:\Users\PAWARUX1\Desktop\FMV Automation\FMVcal.py", line 19, in safe_read_excel
+    return pd.read_excel(file, dtype=str, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 495, in read_excel
+    io = ExcelFile(
+        io,
+    ...<2 lines>...
+        engine_kwargs=engine_kwargs,
+    )
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 1567, in __init__
+    self._reader = self._engines[engine](
+                   ~~~~~~~~~~~~~~~~~~~~~^
+        self._io,
+        ^^^^^^^^^
+        storage_options=storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        engine_kwargs=engine_kwargs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_openpyxl.py", line 553, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        filepath_or_buffer,
+        ^^^^^^^^^^^^^^^^^^^
+        storage_options=storage_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        engine_kwargs=engine_kwargs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_base.py", line 573, in __init__
+    self.book = self.load_workbook(self.handles.handle, engine_kwargs)
+                ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_openpyxl.py", line 572, in load_workbook
+    return load_workbook(
+        filepath_or_buffer,
+        **(default_kwargs | engine_kwargs),
+    )
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 348, in load_workbook
+    reader.read()
+    ~~~~~~~~~~~^^
+  File "C:\Users\PAWARUX1\AppData\Local\Programs\Python\Python313\Lib\site-packages\openpyxl\reader\excel.py", line 309, in read
+    raise ValueError(
+    ...<3 lines>...
+        ) from e
+ValueError: Unable to read workbook: could not read stylesheet from C:\Users\PAWARUX1\Desktop\FMV Automation\FMV_Calculator.xlsx.
+This is most probably because the workbook source files contain some invalid XML.
+Please see the exception for more details.
+
+C:\Users\PAWARUX1\Desktop\FMV Automation>
