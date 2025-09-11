@@ -1,22 +1,13 @@
 import pandas as pd
 import os
-from datetime import datetime
+from openpyxl import load_workbook
 
-# ------------------ CONFIG ------------------
+# ========== CONFIG ==========
 folder_path = r"C:\Users\PAWARUX1\Desktop\FMV Automation"
 fmv_file = os.path.join(folder_path, "FMV_Calculator.xlsx")
 cvdump_file = os.path.join(folder_path, "CVdump.xlsx")
 dvl_file = os.path.join(folder_path, "DVL.xlsx")
-missing_file = os.path.join(folder_path, "Missing_Doctors.xlsx")
-backup_file = fmv_file.replace(".xlsx", f"_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
-# --------------------------------------------
-
-def safe_read_excel(file, **kwargs):
-    """Read Excel safely, ignoring style corruption issues."""
-    try:
-        return pd.read_excel(file, dtype=str, engine="openpyxl", **kwargs)
-    except Exception:
-        return pd.read_excel(file, dtype=str, **kwargs)
+missing_log_file = os.path.join(folder_path, "Missing_Doctors.xlsx")
 
 # Required columns
 cvdump_cols = [
@@ -34,72 +25,72 @@ cvdump_cols = [
 ]
 dvl_cols = ["Customer Code", "Account: Email", "Tier Type", "Account: Account Name"]
 
-# ------------------ LOAD FILES ------------------
-print("📂 Loading Excel files...")
-fmv = safe_read_excel(fmv_file)
-cvdump = safe_read_excel(cvdump_file, usecols=lambda x: x in cvdump_cols)
-dvl = safe_read_excel(dvl_file, usecols=lambda x: x in dvl_cols)
+# ========== SAFE READER ==========
+def safe_read_excel(file, usecols=None):
+    """
+    Try reading Excel normally; if it fails (due to corrupted styles),
+    fallback to openpyxl value-only reader (ignores styles).
+    """
+    try:
+        return pd.read_excel(file, dtype=str, usecols=usecols, engine="openpyxl")
+    except Exception as e:
+        print(f"⚠️ Normal read failed for {file}: {e}")
+        print("👉 Retrying with style-stripped mode...")
+        wb = load_workbook(file, read_only=True, data_only=True)
+        sheet = wb.active
+        data = sheet.values
+        cols = next(data)
+        df = pd.DataFrame(data, columns=cols)
+        if usecols:
+            df = df[[c for c in df.columns if c in usecols]]
+        return df.astype(str).fillna("")
 
-# ------------------ NORMALIZE EMAILS ------------------
+# ========== MAIN PIPELINE ==========
+print("📂 Loading files...")
+fmv = safe_read_excel(fmv_file)
+cvdump = safe_read_excel(cvdump_file, usecols=cvdump_cols)
+dvl = safe_read_excel(dvl_file, usecols=dvl_cols)
+
+# Normalize emails
 for df, col in [(cvdump, "HCP Email"), (dvl, "Account: Email"), (fmv, "HCP Email")]:
     if col in df.columns:
-        df[col] = df[col].astype(str).str.strip().str.lower()
+        df[col] = df[col].str.strip().str.lower()
 
-# ------------------ CLEAN DUPLICATES ------------------
+# Deduplicate
 cvdump = cvdump.drop_duplicates(subset=["HCP Email"], keep="first")
 dvl = dvl.drop_duplicates(subset=["Account: Email"], keep="first")
 
-# ------------------ MERGE ------------------
-merged = pd.merge(
-    dvl, cvdump,
-    left_on="Account: Email", right_on="HCP Email",
-    how="left"   # left join so we can track missing ones too
-)
+# Merge DVL + CVdump on email
+merged = pd.merge(dvl, cvdump, left_on="Account: Email", right_on="HCP Email", how="inner")
+merged["DVL Code"] = merged["Customer Code"]
 
-# ------------------ SPLIT FOUND vs MISSING ------------------
-found = merged.dropna(subset=["HCP Email"]).copy()
-missing = merged[merged["HCP Email"].isna()].copy()
-
-# Add DVL Code
-if "Customer Code" in found.columns:
-    found["DVL Code"] = found["Customer Code"]
-else:
-    found["DVL Code"] = None
-
-# ------------------ ALIGN WITH FMV ------------------
+# Ensure FMV has all required columns
 for col in list(cvdump_cols) + ["DVL Code"]:
     if col not in fmv.columns:
         fmv[col] = None
 
 # Prepare rows in FMV format
-cols_to_add = ["DVL Code"] + [c for c in cvdump_cols if c in found.columns]
-new_rows = found[cols_to_add]
+cols_to_add = ["DVL Code"] + [c for c in cvdump_cols if c in merged.columns]
+new_rows = merged[cols_to_add]
 
-# ------------------ DEDUPLICATION ------------------
-before = len(new_rows)
+# Deduplication check (skip existing doctors)
 if "DVL Code" in fmv.columns:
     new_rows = new_rows[~new_rows["DVL Code"].isin(fmv["DVL Code"])]
 if "HCP Email" in fmv.columns and "HCP Email" in new_rows.columns:
     new_rows = new_rows[~new_rows["HCP Email"].isin(fmv["HCP Email"])]
-after = len(new_rows)
-skipped_duplicates = before - after
 
-# ------------------ APPEND ------------------
-added_count = len(new_rows)
+# Append into FMV
+before = len(fmv)
 fmv = pd.concat([fmv, new_rows], ignore_index=True)
+added = len(fmv) - before
 
-# ------------------ SAVE FILES ------------------
-# Backup original FMV
-os.rename(fmv_file, backup_file)
-print(f"🛡️ Backup created: {backup_file}")
-
-# Save updated FMV
+# Save back into SAME FMV file
 fmv.to_excel(fmv_file, index=False)
-print(f"✅ FMV_Calculator updated in place. Added {added_count} new rows, skipped {skipped_duplicates} duplicates.")
 
-# Save missing doctors log
+# Track missing doctors (present in DVL but not in CVdump)
+missing = dvl[~dvl["Account: Email"].isin(cvdump["HCP Email"])]
 if not missing.empty:
-    missing[["Customer Code", "Account: Email", "Tier Type", "Account: Account Name"]].to_excel(missing_file, index=False)
-    print(f"⚠️ {len(missing)} doctors from DVL not found in CVdump. Logged in {missing_file}")
-else:
-    print("🎉 All DVL doctors matched in CVdump. No missing entries.")
+    missing.to_excel(missing_log_file, index=False)
+    print(f"⚠️ Missing doctors logged: {len(missing)} (saved to {missing_log_file})")
+
+print(f"✅ FMV_Calculator updated successfully. Added {added} new rows.")
