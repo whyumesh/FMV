@@ -13,6 +13,10 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import traceback
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.formula.translate import Translator
+from openpyxl.utils.cell import range_boundaries
 
 # =============================================================================
 # CONFIGURATION & LOGGING SETUP
@@ -30,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # File paths
-FOLDER_PATH = r"E:/FMV/FMV"
+FOLDER_PATH = r"/workspace"
 FMV_FILE = os.path.join(FOLDER_PATH, "FMV_Calculator_Updated.xlsx")  # Use your updated Excel file with formulas
 CVDUMP_FILE = os.path.join(FOLDER_PATH, "CVdump.csv")
 DVL_FILE = os.path.join(FOLDER_PATH, "DVL.csv")
@@ -371,7 +375,7 @@ def match_doctors(dvl_df: pd.DataFrame, cvdump_df: pd.DataFrame) -> Tuple[pd.Dat
     
     return matched_df, missing_df
 
-def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.DataFrame:
+def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Update FMV Calculator with new matched data and update existing records with missing data
     
@@ -386,7 +390,7 @@ def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.
     
     if matched_df.empty:
         logger.info("No new data to add to FMV Calculator")
-        return fmv_df
+        return fmv_df, pd.DataFrame(), pd.DataFrame()
     
     # Get existing emails to avoid duplicates
     existing_emails = set(fmv_df["HCP Email"].dropna().apply(clean_email))
@@ -419,7 +423,7 @@ def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.
     
     if new_data.empty and updated_count == 0:
         logger.info("All matched doctors already exist in FMV Calculator with complete data")
-        return fmv_df
+        return fmv_df, pd.DataFrame(), pd.DataFrame()
     
     # Ensure all required columns exist in new data
     for col in fmv_df.columns:
@@ -434,9 +438,9 @@ def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.
     
     logger.info(f"Added {len(new_data)} new doctors to FMV Calculator")
     logger.info(f"Updated {updated_count} existing doctors with missing data")
-    return updated_fmv
+    return updated_fmv, new_data, existing_data
 
-def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame) -> bool:
+def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame, new_rows_df: Optional[pd.DataFrame] = None, updated_rows_df: Optional[pd.DataFrame] = None) -> bool:
     """
     Save all results to files
     
@@ -455,11 +459,108 @@ def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame) -> bool:
         # Create backup before saving
         create_backup(FMV_FILE)
         
-        # Save updated FMV Calculator
+        # Preserve formulas by editing workbook in-place with openpyxl
         if FMV_FILE.lower().endswith('.xlsx'):
-            fmv_df.to_excel(FMV_FILE, index=False, engine='openpyxl')
-            logger.info(f"FMV Calculator saved as Excel: {len(fmv_df)} total records")
+            wb = load_workbook(FMV_FILE, data_only=False)
+            ws = wb.active
+
+            # Build header map from first row
+            header_row_index = 1
+            headers = {}
+            max_col = ws.max_column
+            for col_idx in range(1, max_col + 1):
+                cell_value = ws.cell(row=header_row_index, column=col_idx).value
+                if cell_value is not None and str(cell_value).strip() != "":
+                    headers[str(cell_value).strip()] = col_idx
+
+            if "HCP Email" not in headers:
+                raise ValueError("'HCP Email' column not found in Excel header. Cannot align rows.")
+
+            email_col_idx = headers["HCP Email"]
+
+            # Index existing rows by cleaned email
+            email_to_row = {}
+            for row_idx in range(header_row_index + 1, ws.max_row + 1):
+                value = ws.cell(row=row_idx, column=email_col_idx).value
+                cleaned = clean_email(value)
+                if cleaned:
+                    # Keep the first occurrence only
+                    email_to_row.setdefault(cleaned, row_idx)
+
+            # Update existing rows (only provided non-null fields, skip formula cells)
+            if updated_rows_df is not None and not updated_rows_df.empty:
+                for _, upd in updated_rows_df.iterrows():
+                    email = clean_email(upd.get("HCP Email", ""))
+                    if not email:
+                        continue
+                    target_row = email_to_row.get(email)
+                    if not target_row:
+                        continue
+                    for col_name, value in upd.items():
+                        if col_name in headers and col_name != "HCP Email" and value is not None and str(value) != "nan":
+                            col_idx = headers[col_name]
+                            cell = ws.cell(row=target_row, column=col_idx)
+                            # Do not overwrite existing formula cells
+                            if isinstance(cell.value, str) and cell.value.startswith('='):
+                                continue
+                            cell.value = value
+
+            # Prepare template row (last used data row) for formulas
+            # Find last row with an email
+            last_data_row = None
+            for row_idx in range(ws.max_row, header_row_index, -1):
+                val = ws.cell(row=row_idx, column=email_col_idx).value
+                if val is not None and str(val).strip() != "":
+                    last_data_row = row_idx
+                    break
+
+            template_formulas_by_col = {}
+            if last_data_row is not None:
+                for col_idx in range(1, max_col + 1):
+                    c = ws.cell(row=last_data_row, column=col_idx)
+                    if isinstance(c.value, str) and c.value.startswith('='):
+                        template_formulas_by_col[col_idx] = c.value
+
+            # Append new rows, preserving formulas by translating from template row
+            if new_rows_df is not None and not new_rows_df.empty:
+                current_last_row = ws.max_row
+                for _, newr in new_rows_df.iterrows():
+                    write_row = current_last_row + 1
+                    # Write values
+                    for header_name, col_idx in headers.items():
+                        if header_name in newr.index and pd.notna(newr[header_name]):
+                            ws.cell(row=write_row, column=col_idx).value = newr[header_name]
+                        else:
+                            # If no value provided but a template formula exists for this column, translate it
+                            if col_idx in template_formulas_by_col:
+                                formula = template_formulas_by_col[col_idx]
+                                origin_cell = f"{get_column_letter(col_idx)}{last_data_row}"
+                                target_cell = f"{get_column_letter(col_idx)}{write_row}"
+                                try:
+                                    translated = Translator(formula, origin=origin_cell).translate_formula(target_cell)
+                                    ws.cell(row=write_row, column=col_idx).value = translated
+                                except Exception:
+                                    # Fallback: copy same formula without translation
+                                    ws.cell(row=write_row, column=col_idx).value = formula
+
+                    current_last_row = write_row
+
+                # Expand any tables to include new rows
+                try:
+                    tables = getattr(ws, "tables", {})
+                    if tables:
+                        for name, table in list(tables.items()):
+                            min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+                            # Extend to current_last_row
+                            max_row = max(max_row, current_last_row)
+                            table.ref = f"{get_column_letter(min_col)}{min_row}:{get_column_letter(max_col)}{max_row}"
+                except Exception as e:
+                    logger.warning(f"Could not expand Excel table range: {str(e)}")
+
+            wb.save(FMV_FILE)
+            logger.info(f"FMV Calculator saved (formulas preserved): {len(fmv_df)} total records (planned)")
         else:
+            # CSV path: fall back to full write
             fmv_df.to_csv(FMV_FILE, index=False, encoding="utf-8-sig")
             logger.info(f"FMV Calculator saved as CSV: {len(fmv_df)} total records")
         
@@ -502,10 +603,10 @@ def main():
         matched_df, missing_df = match_doctors(dvl_df, processed_cvdump)
         
         # Update FMV Calculator
-        updated_fmv = update_fmv_calculator(fmv_df, matched_df)
+        updated_fmv, new_rows_df, updated_rows_df = update_fmv_calculator(fmv_df, matched_df)
         
-        # Save results
-        if save_results(updated_fmv, missing_df):
+        # Save results (preserving formulas in Excel)
+        if save_results(updated_fmv, missing_df, new_rows_df=new_rows_df, updated_rows_df=updated_rows_df):
             logger.info("=" * 60)
             logger.info("FMV CALCULATOR PROCESS COMPLETED SUCCESSFULLY")
             logger.info("=" * 60)
