@@ -30,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # File paths
-FOLDER_PATH = r"E:/FMV/FMV"
+FOLDER_PATH = r"C:/Users/PAWARUX1/Desktop/FMV"
 FMV_FILE = os.path.join(FOLDER_PATH, "FMV_Calculator_Updated.xlsx")  # Use your original file with headers
 CVDUMP_FILE = os.path.join(FOLDER_PATH, "CVdump.csv")
 DVL_FILE = os.path.join(FOLDER_PATH, "DVL.csv")
@@ -554,7 +554,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if not validate_dataframe(cvdump_df, "CVdump", ["HCP Email", "Start time"]):
         raise ValueError("CVdump validation failed")
     
-    if not validate_dataframe(dvl_df, "DVL", ["Account: Email", "Customer Code"]):
+    if not validate_dataframe(dvl_df, "DVL Code", ["Account: Email", "Customer Code"]):
         raise ValueError("DVL validation failed")
     
     return fmv_df, cvdump_df, dvl_df
@@ -637,7 +637,7 @@ def match_doctors(dvl_df: pd.DataFrame, cvdump_df: pd.DataFrame) -> Tuple[pd.Dat
             
             # Create combined record
             combined_record = {
-                "i": dvl_code,  # DVL Code column is named "i" in the FMV Calculator
+                "DVL Code": dvl_code,  # DVL Code column is named "i" in the FMV Calculator
                 "HCP Email": email,
                 **{COLUMN_MAPPING.get(k, k): v for k, v in survey_data.items() if k in COLUMN_MAPPING}
             }
@@ -646,7 +646,7 @@ def match_doctors(dvl_df: pd.DataFrame, cvdump_df: pd.DataFrame) -> Tuple[pd.Dat
         else:
             # No match found
             missing_data.append({
-                "i": dvl_code,  # DVL Code column is named "i" in the FMV Calculator
+                "DVL Code": dvl_code,  # DVL Code column is named "i" in the FMV Calculator
                 "HCP Email": email
             })
     
@@ -699,7 +699,7 @@ def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.
                 fmv_idx = fmv_idx[0]
                 # Update DVL code and other missing fields
                 years_col = "Years of experience in the Specialty / Super Specialty?_x000D_\n"
-                dvl_code_col = "i"  # DVL Code column
+                dvl_code_col = "DVL Code"  # DVL Code column
                 
                 # Always update DVL code if it's missing
                 if pd.isna(fmv_df.loc[fmv_idx, dvl_code_col]) and not pd.isna(row.get(dvl_code_col)):
@@ -770,7 +770,7 @@ def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame) -> bool:
             logger.info(f"Missing doctors saved: {len(missing_df)} records")
         else:
             # Create empty file if no missing doctors
-            pd.DataFrame(columns=["i", "HCP Email"]).to_csv(MISSING_FILE, index=False, encoding="utf-8-sig")
+            pd.DataFrame(columns=["DVL Code", "HCP Email"]).to_csv(MISSING_FILE, index=False, encoding="utf-8-sig")
             logger.info("Missing doctors file created (empty)")
             
     except Exception as e:
@@ -838,4 +838,3 @@ def main():
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
-
