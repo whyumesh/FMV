@@ -749,7 +749,7 @@ def create_dvl_updated_export(fmv_df: pd.DataFrame) -> pd.DataFrame:
     export_columns = {
         'DVL Code': 'DVL Code',
         'HCP Email': 'HCP Email', 
-        'Specialty / Super Specialty': 'Specialty',
+        'Specialty / Super Specialty': 'Speciality by Practice',
         'Tier': 'Tier'
     }
     
@@ -780,13 +780,13 @@ def create_dvl_updated_export(fmv_df: pd.DataFrame) -> pd.DataFrame:
     
     # Clean and format the data
     dvl_updated_df['HCP Email'] = dvl_updated_df['HCP Email'].apply(clean_email)
-    dvl_updated_df['Specialty'] = dvl_updated_df['Specialty'].fillna('Not Specified')
+    dvl_updated_df['Speciality by Practice'] = dvl_updated_df['Speciality by Practice'].fillna('Not Specified')
     dvl_updated_df['Tier'] = dvl_updated_df['Tier'].fillna('Not Calculated')
     
     # Sort by Tier and Specialty for better organization
     tier_order = {'Tier 1': 1, 'Tier 2': 2, 'Tier 3': 3, 'Tier 4': 4, 'Not Calculated': 5}
     dvl_updated_df['tier_sort'] = dvl_updated_df['Tier'].map(tier_order).fillna(5)
-    dvl_updated_df = dvl_updated_df.sort_values(['tier_sort', 'Specialty', 'HCP Email'])
+    dvl_updated_df = dvl_updated_df.sort_values(['tier_sort', 'Speciality by Practice', 'HCP Email'])
     dvl_updated_df = dvl_updated_df.drop('tier_sort', axis=1)
     
     logger.info(f"DVL_updated export data created: {len(dvl_updated_df)} records")
@@ -854,11 +854,11 @@ def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame, dvl_updated_df:
             # Log summary statistics
             logger.info("DVL_updated.xlsx summary:")
             logger.info(f"   - Total records: {len(dvl_updated_df)}")
-            logger.info(f"   - Unique specialties: {dvl_updated_df['Specialty'].nunique()}")
+            logger.info(f"   - Unique specialties: {dvl_updated_df['Speciality by Practice'].nunique()}")
             logger.info(f"   - Records with calculated tiers: {len(dvl_updated_df[dvl_updated_df['Tier'] != 'Not Calculated'])}")
         else:
             # Create empty file if no data
-            empty_df = pd.DataFrame(columns=["DVL Code", "HCP Email", "Specialty", "Tier"])
+            empty_df = pd.DataFrame(columns=["DVL Code", "HCP Email", "Speciality by Practice", "Tier"])
             empty_df.to_excel(DVL_UPDATED_FILE, index=False, engine='openpyxl', sheet_name='DVL Updated')
             logger.info("DVL_updated.xlsx created (empty)")
             
