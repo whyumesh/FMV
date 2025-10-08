@@ -858,7 +858,7 @@ def save_results(fmv_df: pd.DataFrame, missing_df: pd.DataFrame, dvl_updated_df:
             logger.info(f"   - Records with calculated tiers: {len(dvl_updated_df[dvl_updated_df['Tier'] != 'Not Calculated'])}")
         else:
             # Create empty file if no data
-            empty_df = pd.DataFrame(columns=["DVL Code", "HCP Email", "Speciality by Practice", "Tier"])
+            empty_df = pd.DataFrame(columns=["DVL Code", "HCP Email", "Speciality by Practice", "   "])
             empty_df.to_excel(DVL_UPDATED_FILE, index=False, engine='openpyxl', sheet_name='DVL Updated')
             logger.info("DVL_updated.xlsx created (empty)")
             
