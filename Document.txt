@@ -1,0 +1,283 @@
+Here’s a complete technical documentation for your FMV Automation System, based on the script you uploaded (FMVcalnew (1).py).
+You can submit this to your manager and team — it’s written in a formal and professional tone suitable for internal project documentation.
+
+
+---
+
+🧩 FMV Calculator Automation System Documentation
+
+Version: 2.1
+Author: Production System (Developed & Maintained by Umesh Pawar)
+Last Updated: October 2025
+
+
+---
+
+📘 1. Overview
+
+The FMV Calculator Automation System is designed to streamline and automate the process of matching DVL (Doctor Validation List) entries with CV survey data, applying a standardized scoring mechanism, and updating the FMV Calculator accordingly.
+
+This automation eliminates manual matching, data cleaning, and tier calculation, ensuring accuracy, consistency, and time efficiency for large-scale datasets (typically ~25,000+ records).
+
+
+---
+
+⚙️ 2. Objective
+
+Automatically match and merge data between multiple source files:
+
+FMV_Calculator_Updated.xlsx
+
+CVdump.csv
+
+DVL.csv
+
+
+Apply standardized scoring and tier logic to each HCP (Healthcare Professional) based on survey data.
+
+Generate updated and validated outputs:
+
+FMV_Calculator_Updated.xlsx (updated master)
+
+Missing_Doctors.csv (HCPs without survey data)
+
+DVL_updated.xlsx (final export for business use)
+
+
+
+
+---
+
+📂 3. File Structure
+
+File Name	Purpose
+
+FMV_Calculator_Updated.xlsx	Master FMV calculator file (input + updated output)
+CVdump.csv	Source survey data exported from CV tool
+DVL.csv	Doctor Validation List (contains DVL codes and email IDs)
+Missing_Doctors.csv	Auto-generated list of unmatched doctors
+DVL_updated.xlsx	Final summarized output for DVL team
+scoring_criteria.xlsx	Lookup reference for score and honorarium mapping
+fmv_calculator.log	Log file recording all system events
+Backup file	Auto-created versioned backup before each update
+
+
+All files are stored under:
+C:\Users\PAWARUX1\Desktop\FMV
+
+
+---
+
+🧠 4. System Workflow
+
+The automation follows a modular pipeline of 6 major stages:
+
+Stage 1: Data Loading
+
+Reads input files (FMV, CVdump, DVL) safely using multiple encoding and parsing methods.
+
+Validates each dataset for completeness and required columns.
+
+Automatically adjusts header rows for FMV files with non-standard formats.
+
+
+Stage 2: Data Cleaning & Processing
+
+Normalizes all email IDs (trims, lowercases, removes noise).
+
+Parses “Start time” in multiple date formats using custom parsing logic.
+
+Handles duplicates in CVdump — retains only the latest survey per email.
+
+
+Stage 3: Matching Logic
+
+Matches DVL entries to CVdump data using HCP Email.
+
+Creates two outputs:
+
+Matched records → merged and prepared for scoring.
+
+Missing records → exported to Missing_Doctors.csv.
+
+
+
+Stage 4: FMV Calculator Update
+
+Updates existing FMV entries where email matches.
+
+Adds new doctor entries automatically if not present.
+
+Creates a backup of the FMV file before modifications.
+
+
+Stage 5: Scoring & Tier Assignment
+
+Loads scoring rules from scoring_criteria.xlsx.
+
+Calculates 9 individual scores per doctor based on:
+
+1. Years of Experience
+
+
+2. Clinical Experience
+
+
+3. Leadership Roles
+
+
+4. Geographical Influence
+
+
+5. Academic Position
+
+
+6. Additional Education
+
+
+7. Research Experience
+
+
+8. Publication Experience
+
+
+9. Speaking Experience
+
+
+
+Computes Total Score, assigns Tier (1–4), and determines Honorarium Rate using the OUS FMV rate table.
+
+
+Stage 6: Export & Logging
+
+Saves final datasets:
+
+Updated FMV calculator (FMV_Calculator_Updated.xlsx)
+
+Missing list (Missing_Doctors.csv)
+
+Business-ready summary (DVL_updated.xlsx)
+
+
+Maintains detailed logs (fmv_calculator.log) and error tracebacks.
+
+
+
+---
+
+📊 5. Output Summary
+
+Output File	Description
+
+FMV_Calculator_Updated.xlsx	Updated master file with scores, tiers, and honorarium rates
+Missing_Doctors.csv	Doctors from DVL without corresponding CV survey
+DVL_updated.xlsx	Clean export containing DVL Code, HCP Email, Speciality, and Tier
+Backup File	Versioned copy created before each update (for rollback)
+
+
+
+---
+
+🔍 6. Error Handling & Logging
+
+Comprehensive logging is implemented using Python’s logging module.
+
+All events (info, warnings, errors) are logged in:
+
+fmv_calculator.log
+
+The system:
+
+Creates a backup before any write operation.
+
+Catches and logs all exceptions with traceback details.
+
+Warns users about missing files, columns, or unmatched specialties.
+
+
+
+
+---
+
+🧾 7. Key Features
+
+✅ Automatic matching between multiple data sources
+✅ Intelligent duplicate detection and resolution
+✅ Tier calculation with standardized criteria
+✅ Honorarium assignment based on specialty-tier matrix
+✅ Automatic backup and log creation
+✅ Fully modular, production-level design
+✅ Robust exception and encoding handling
+✅ Generates ready-to-share Excel summaries
+
+
+---
+
+⚡ 8. Technical Stack
+
+Component	Details
+
+Language	Python 3.12
+Libraries Used	pandas, openpyxl, xlrd, logging, datetime, traceback, os, sys
+Data Format Support	CSV, XLSX
+Runtime Environment	Windows Desktop (Anaconda Python)
+Approx. Data Volume	20K–30K records per execution
+
+
+
+---
+
+🚀 9. How to Run the Script
+
+1. Place all input files in the FMV folder:
+
+C:\Users\PAWARUX1\Desktop\FMV
+
+
+2. Ensure scoring_criteria.xlsx is present in the same directory.
+
+
+3. Open a terminal or Anaconda prompt.
+
+
+4. Navigate to the script location.
+
+
+5. Execute:
+
+python FMVcalnew.py
+
+
+6. Check fmv_calculator.log for progress and results.
+
+
+
+
+---
+
+🧩 10. Future Enhancements
+
+Add GUI for easier input selection.
+
+Automate periodic scheduling using Windows Task Scheduler.
+
+Integrate email notifications for completion or error alerts.
+
+Store configurations (paths, column mappings) in a JSON file for flexibility.
+
+Add Power BI integration for automatic reporting.
+
+
+
+---
+
+🏁 11. Conclusion
+
+This FMV automation script delivers a fully automated, repeatable, and auditable process for FMV data management.
+It saves significant manual effort, ensures data consistency, and provides a scalable foundation for future system integrations.
+
+
+---
+
+Would you like me to format this as a Word (DOCX) or PDF file for submission? I can generate it with a professional header and section styling.
+
