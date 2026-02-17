@@ -30,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # File paths
-FOLDER_PATH = r"C:/Users/PAWARUX1/Desktop/FMV"
+FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
 FMV_FILE = os.path.join(FOLDER_PATH, "FMV_Calculator_Updated.xlsx")  # Use your original file with headers
 CVDUMP_FILE = os.path.join(FOLDER_PATH, "CVdump.csv")
 DVL_FILE = os.path.join(FOLDER_PATH, "DVL.csv")
@@ -142,12 +142,25 @@ def create_scoring_lookup(details_df):
         "3 or More Additional degrees, fellowship, or advanced training certification.": 6
     }
     
-    # Research experience
+    # Research experience (accept both "of" and "or" for 10+ trials - survey/copy may use either)
+    _res_10_plus = (
+        "Participation as an Investigator or Sub-Investigator in 10 or more clinical trials or research studies "
+        "or Principal Investigator for two or more clinical trials or research studies or serving as the Principal "
+        "Investigator for a clinical trial or research study that led to important medical innovations or significant "
+        "medical technology breakthroughs."
+    )
+    _res_10_plus_alt = (
+        "Participation as an Investigator of Sub-Investigator in 10 or more clinical trials or research studies "
+        "or Principal Investigator for two or more clinical trials or research studies or serving as the Principal "
+        "Investigator for a clinical trial or research study that led to important medical innovations or significant "
+        "medical technology breakthroughs."
+    )
     scoring_lookup["research_experience"] = {
         "None or N/A": 0,
         "Participation as an Investigator or Sub-Investigator in 1 to 4 clinical trials or research studies.": 2,
         "Participation as an Investigator or Sub-Investigator in 5 to 9 clinical trials or research studies.": 4,
-        "Participation as an Investigator of Sub-Investigator in 10 or more clinical trials or research studies or Principal Investigator for two or more clinical trials or research studies or serving as the Principal Investigator for a clinical trial or research study that led to important medical innovations or significant medical technology breakthroughs.": 6
+        _res_10_plus: 6,
+        _res_10_plus_alt: 6,
     }
     
     # Publication experience
@@ -168,44 +181,84 @@ def create_scoring_lookup(details_df):
     
     return scoring_lookup
 
+def _normalize_option_text(text):
+    """Normalize option text for lookup: strip, replace non-breaking space, collapse spaces."""
+    if not text or (isinstance(text, float) and pd.isna(text)):
+        return ""
+    s = str(text).strip().replace("\xa0", " ").replace("\u00a0", " ")
+    return " ".join(s.split())
+
+
+def _row_value(row, logical_column_name: str, default=""):
+    """
+    Get value from a row (Series) by matching column name after normalization.
+    Ensures scoring works regardless of Excel/CSV header variants (_x000D_\\n, \\n, etc.).
+    """
+    if hasattr(row, "index"):
+        target_norm = _normalize_col(logical_column_name)
+        for col in row.index:
+            if _normalize_col(str(col)) == target_norm:
+                val = row[col]
+                return default if (val is None or (isinstance(val, float) and pd.isna(val))) else val
+    return default
+
+
+# Canonical column names for scoring (used with _row_value so headers can vary)
+_SCORE_COLUMNS = {
+    "years": "Years of experience in the Specialty / Super Specialty?",
+    "clinical": "Clinical Experience: i.e. Time Spent with Patients?",
+    "leadership": "Leadership position(s) in a Professional or Scientific Society and/or leadership position(s) in Hospital or other Patient Care Settings (e.g. Department Head or Chief, Medical Director, Lab Direct...",
+    "geo": "Geographic influence as a Key Opinion Leader.",
+    "academic": "Highest Academic Position Held in past 10 years",
+    "add_edu": "Additional Educational Level",
+    "research": "Research Experience (e.g., industry-sponsored research, investigator-initiated research, other research) in past 10 years",
+    "publication": "Publication experience in the past 10 years",
+    "speaking": "Speaking experience (professional, academic, scientific, or media experience) in the past 10 years.",
+}
+
+
 def calculate_individual_scores(row, scoring_lookup):
-    """Calculate individual scores (Score 1-9) for a doctor"""
+    """Calculate individual scores (Score 1-9) for a doctor. Uses normalized column lookup so FMV Excel header variants don't cause wrong scores."""
     scores = {}
     
     # Score 1: Years of experience
-    years_text = str(row.get("Years of experience in the Specialty / Super Specialty?_x000D_\n", "")).strip()
+    years_text = str(_row_value(row, _SCORE_COLUMNS["years"], "")).strip()
     scores["Score 1"] = scoring_lookup.get("years_experience", {}).get(years_text, 0)
     
     # Score 2: Clinical Experience
-    clinical_text = str(row.get("Clinical Experience: i.e. Time Spent with Patients?", "")).strip()
+    clinical_text = str(_row_value(row, _SCORE_COLUMNS["clinical"], "")).strip()
     scores["Score 2"] = scoring_lookup.get("clinical_experience", {}).get(clinical_text, 0)
     
     # Score 3: Leadership position
-    leadership_text = str(row.get("Leadership position(s) in a Professional or Scientific Society and/or leadership position(s) in Hospital or other Patient Care Settings (e.g. Department Head or Chief, Medical Director, Lab Direct...", "")).strip()
+    leadership_text = str(_row_value(row, _SCORE_COLUMNS["leadership"], "")).strip()
     scores["Score 3"] = scoring_lookup.get("leadership", {}).get(leadership_text, 0)
     
     # Score 4: Geographical influence
-    geo_text = str(row.get("Geographic influence as a Key Opinion Leader.", "")).strip()
+    geo_text = str(_row_value(row, _SCORE_COLUMNS["geo"], "")).strip()
     scores["Score 4"] = scoring_lookup.get("geographical_reach", {}).get(geo_text, 0)
     
     # Score 5: Highest Academic Position
-    academic_text = str(row.get("Highest Academic Position Held in past 10 years", "")).strip()
+    academic_text = str(_row_value(row, _SCORE_COLUMNS["academic"], "")).strip()
     scores["Score 5"] = scoring_lookup.get("academic_position", {}).get(academic_text, 0)
     
     # Score 6: Additional Educational Level
-    add_edu_text = str(row.get("Additional Educational Level", "")).strip()
+    add_edu_text = str(_row_value(row, _SCORE_COLUMNS["add_edu"], "")).strip()
     scores["Score 6"] = scoring_lookup.get("additional_education", {}).get(add_edu_text, 0)
     
-    # Score 7: Research Experience
-    research_text = str(row.get("Research Experience (e.g., industry-sponsored research, investigator-initiated research, other research) in past 10 years", "")).strip()
-    scores["Score 7"] = scoring_lookup.get("research_experience", {}).get(research_text, 0)
+    # Score 7: Research Experience (normalize to handle NBSP/whitespace from CSV/Excel)
+    research_raw = _row_value(row, _SCORE_COLUMNS["research"], "")
+    research_text = _normalize_option_text(research_raw)
+    research_lookup = scoring_lookup.get("research_experience", {})
+    scores["Score 7"] = research_lookup.get(research_text, 0)
+    if scores["Score 7"] == 0 and research_text:
+        scores["Score 7"] = research_lookup.get(str(research_raw).strip(), 0)
     
     # Score 8: Publication experience
-    pub_text = str(row.get("Publication experience in the past 10 years", "")).strip()
+    pub_text = str(_row_value(row, _SCORE_COLUMNS["publication"], "")).strip()
     scores["Score 8"] = scoring_lookup.get("publication_experience", {}).get(pub_text, 0)
     
     # Score 9: Speaking experience
-    speaking_text = str(row.get("Speaking experience (professional, academic, scientific, or media experience) in the past 10 years.", "")).strip()
+    speaking_text = str(_row_value(row, _SCORE_COLUMNS["speaking"], "")).strip()
     scores["Score 9"] = scoring_lookup.get("speaking_experience", {}).get(speaking_text, 0)
     
     return scores
@@ -660,69 +713,101 @@ def match_doctors(dvl_df: pd.DataFrame, cvdump_df: pd.DataFrame) -> Tuple[pd.Dat
     
     return matched_df, missing_df
 
+def _normalize_col(name: str) -> str:
+    """Normalize column name for matching (strip CRLF artifacts and whitespace)."""
+    return str(name).replace("_x000D_", "").replace("\n", "").replace("\r", "").strip()
+
+
+def _resolve_years_column(df: pd.DataFrame) -> Optional[str]:
+    """Return the column name in df for 'Years of experience in the Specialty / Super Specialty?' (handles _x000D_\\n and whitespace variants)."""
+    for col in df.columns:
+        c = _normalize_col(col)
+        if "Years of experience" in c and "Specialty" in c:
+            return col
+    return None
+
+
+def _resolve_column_in_fmv(fmv_df: pd.DataFrame, col: str) -> Optional[str]:
+    """Return the column name in fmv_df that matches col (handles name variants like _x000D_\\n)."""
+    if col in fmv_df.columns:
+        return col
+    n = _normalize_col(col)
+    for c in fmv_df.columns:
+        if _normalize_col(c) == n:
+            return c
+    return None
+
+
 def update_fmv_calculator(fmv_df: pd.DataFrame, matched_df: pd.DataFrame) -> pd.DataFrame:
     """
     Update FMV Calculator with new matched data and update existing records with missing data
-    
+
     Args:
         fmv_df: Current FMV Calculator DataFrame
         matched_df: New matched data to add
-    
+
     Returns:
         Updated FMV Calculator DataFrame
     """
     logger.info("Updating FMV Calculator...")
-    
+
     if matched_df.empty:
         logger.info("No new data to add to FMV Calculator")
         return fmv_df
-    
+
+    # Resolve years column in both dataframes (FMV may have different name than matched/CV data)
+    years_col_fmv = _resolve_years_column(fmv_df)
+    years_col_matched = _resolve_years_column(matched_df) or "Years of experience in the Specialty / Super Specialty?_x000D_\n"
+
     # Get existing emails to avoid duplicates
     existing_emails = set(fmv_df["HCP Email"].dropna().apply(clean_email))
-    
+
     # Filter out already existing emails
     new_emails = matched_df["HCP Email"].apply(clean_email)
     new_data = matched_df[~new_emails.isin(existing_emails)]
-    
+
     # Also check for existing emails that need updating (missing years data)
     existing_data = matched_df[new_emails.isin(existing_emails)]
-    
+
     updated_count = 0
     if not existing_data.empty:
         logger.info(f"Found {len(existing_data)} existing doctors to update with missing data")
-        
+
         # Update existing records with missing data
         for idx, row in existing_data.iterrows():
             email = clean_email(row["HCP Email"])
             fmv_idx = fmv_df[fmv_df["HCP Email"].apply(clean_email) == email].index
-            
+
             if len(fmv_idx) > 0:
                 fmv_idx = fmv_idx[0]
-                # Update DVL code and other missing fields
-                years_col = "Years of experience in the Specialty / Super Specialty?_x000D_\n"
                 dvl_code_col = "DVL Code"  # DVL Code column
-                
+
                 # Always update DVL code if it's missing
                 if pd.isna(fmv_df.loc[fmv_idx, dvl_code_col]) and not pd.isna(row.get(dvl_code_col)):
                     fmv_df.loc[fmv_idx, dvl_code_col] = row[dvl_code_col]
                     updated_count += 1
-                
-                # Update other fields if years column is empty
-                if pd.isna(fmv_df.loc[fmv_idx, years_col]) and not pd.isna(row.get(years_col)):
+
+                # Update other fields if years column is empty (use resolved column names)
+                fmv_years_empty = years_col_fmv is None or pd.isna(fmv_df.loc[fmv_idx, years_col_fmv])
+                row_years_val = row.get(years_col_matched)
+                if years_col_fmv and fmv_years_empty and not pd.isna(row_years_val):
                     for col in matched_df.columns:
-                        if col in fmv_df.columns and not pd.isna(row[col]):
-                            fmv_df.loc[fmv_idx, col] = row[col]
+                        # Map matched column to FMV column (in case of _x000D_ etc. difference)
+                        fmv_col = col if col in fmv_df.columns else _resolve_column_in_fmv(fmv_df, col)
+                        if fmv_col and not pd.isna(row[col]):
+                            fmv_df.loc[fmv_idx, fmv_col] = row[col]
                     updated_count += 1
     
     if new_data.empty and updated_count == 0:
         logger.info("All matched doctors already exist in FMV Calculator with complete data")
         return fmv_df
     
-    # Ensure all required columns exist in new data
+    # Ensure all required columns exist in new data (map from matched column names if different)
     for col in fmv_df.columns:
         if col not in new_data.columns:
-            new_data[col] = None
-    
+            equiv = [c for c in new_data.columns if _normalize_col(c) == _normalize_col(col)]
+            new_data[col] = new_data[equiv[0]] if equiv else None
+
     # Reorder columns to match FMV Calculator
     new_data = new_data[fmv_df.columns]
     
